@@ -1,0 +1,127 @@
+name: awsec1 build and qualification
+
+on:
+  push:
+    branches:
+      - 7.1.4-3-awsec1
+  pull_request:
+    branches:
+      - 7.1.4-3-awsec1
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 240
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build Trixie amd64 package
+        run: |
+          set -euxo pipefail
+
+          mkdir -p "$GITHUB_WORKSPACE/artifacts"
+
+          ./build \
+            trixie \
+            amd64 \
+            "$GITHUB_WORKSPACE/artifacts"
+
+      - name: Verify package metadata
+        run: |
+          set -euxo pipefail
+
+          DEB="artifacts/jellyfin-ffmpeg7_7.1.4-3+awsec1-trixie_amd64.deb"
+
+          test -f "$DEB"
+          test -f artifacts/jellyfin-ffmpeg_7.1.4-3+awsec1-trixie_amd64.buildinfo
+          test -f artifacts/jellyfin-ffmpeg_7.1.4-3+awsec1-trixie_amd64.changes
+
+          test "$(dpkg-deb -f "$DEB" Package)" = "jellyfin-ffmpeg7"
+          test "$(dpkg-deb -f "$DEB" Version)" = "7.1.4-3+awsec1-trixie"
+          test "$(dpkg-deb -f "$DEB" Architecture)" = "amd64"
+
+      - name: Qualify hardened FFmpeg
+        run: |
+          set -euxo pipefail
+
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE/artifacts:/artifacts:ro" \
+            debian:trixie-slim \
+            sh -c '
+              set -eu
+              export DEBIAN_FRONTEND=noninteractive
+
+              apt-get update
+              apt-get install -y \
+                /artifacts/jellyfin-ffmpeg7_7.1.4-3+awsec1-trixie_amd64.deb
+
+              echo "===== PACKAGE ====="
+              dpkg-query -W \
+                -f="\${Package} \${Version} \${Architecture}\n" \
+                jellyfin-ffmpeg7
+
+              echo "===== VERSION ====="
+              /usr/lib/jellyfin-ffmpeg/ffmpeg -version \
+                | head -1 \
+                | grep -F "7.1.4-Jellyfin"
+
+              echo "===== MAGICYUV ====="
+              if /usr/lib/jellyfin-ffmpeg/ffmpeg \
+                   -hide_banner -decoders 2>/dev/null \
+                   | grep -qi magicyuv
+              then
+                echo "FAIL: MagicYUV decoder present"
+                exit 1
+              fi
+              echo "PASS: MagicYUV decoder absent"
+
+              echo "===== HWACCELS ====="
+              HW="$(
+                /usr/lib/jellyfin-ffmpeg/ffmpeg \
+                  -hide_banner -hwaccels 2>/dev/null
+              )"
+
+              printf "%s\n" "$HW"
+
+              for accel in cuda vaapi qsv drm opencl vulkan
+              do
+                printf "%s\n" "$HW" | grep -qx "$accel"
+              done
+
+              echo "===== ENCODE TEST ====="
+              /usr/lib/jellyfin-ffmpeg/ffmpeg \
+                -hide_banner \
+                -f lavfi \
+                -i "testsrc=size=320x180:rate=15" \
+                -t 1 \
+                -c:v libx264 \
+                -f null -
+            '
+
+      - name: Generate checksums
+        run: |
+          set -euxo pipefail
+
+          cd artifacts
+
+          sha256sum \
+            *.deb \
+            *.changes \
+            *.buildinfo \
+            > SHA256SUMS
+
+          cat SHA256SUMS
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: jellyfin-ffmpeg-7.1.4-3-awsec1-trixie-amd64
+          path: |
+            artifacts/*.deb
+            artifacts/*.changes
+            artifacts/*.buildinfo
+            artifacts/SHA256SUMS
+          if-no-files-found: error
