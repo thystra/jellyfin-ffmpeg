@@ -16,6 +16,7 @@ CONFIG := --prefix=${TARGET_DIR} \
 	--disable-libxcb \
 	--disable-sdl2 \
 	--disable-xlib \
+	--disable-decoder=magicyuv \
 	--enable-lto=${FLTO_OPTIONS} \
 	--enable-gpl \
 	--enable-version3 \

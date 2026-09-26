@@ -1,3 +1,9 @@
+jellyfin-ffmpeg (7.1.4-3+awsec1) unstable; urgency=high
+
+  * Security hardening: disable MagicYUV decoder to mitigate CVE-2026-8461.
+
+ -- Alan <alan@argentwolf.org>  Sat, 26 Sep 2026 11:37:09 -0400
+
 jellyfin-ffmpeg (7.1.4-3) unstable; urgency=medium
 
   * Relax to allow safe filenames in mkv attachments
