@@ -2,7 +2,7 @@
 
 export V=1
 
-ORIG_VERSION := $(shell dpkg-parsechangelog -S version)
+ORIG_VERSION := $(shell dpkg-parsechangelog -S version)+awsec1
 VERSION_SUFFIX := $(shell lsb_release -c -s)
 PACKAGE_VERSION := "$(ORIG_VERSION)-$(VERSION_SUFFIX)"
 
@@ -19,6 +19,7 @@ CONFIG := --prefix=${TARGET_DIR} \
 	--disable-libxcb-shape \
 	--disable-xlib \
 	--disable-sdl2 \
+	--disable-decoder=magicyuv \
 	--enable-lto=auto \
 	--enable-gpl \
 	--enable-version3 \
