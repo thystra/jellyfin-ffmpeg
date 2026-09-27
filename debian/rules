@@ -2,7 +2,7 @@
 
 export V=1
 
-ORIG_VERSION := $(shell dpkg-parsechangelog -S version)+awsec1
+ORIG_VERSION := $(shell dpkg-parsechangelog -S version)
 VERSION_SUFFIX := $(shell lsb_release -c -s)
 PACKAGE_VERSION := "$(ORIG_VERSION)-$(VERSION_SUFFIX)"
 
